@@ -16,16 +16,12 @@ This is a Streamlit-based web application for predicting stock prices using time
 ### Prerequisites
 Ensure you have Python installed (Python 3.7 or higher is recommended). Install the required dependencies using:
 
-```sh
 pip install streamlit pandas numpy matplotlib seaborn yfinance statsmodels scikit-learn xgboost
-```
 
 ## Usage
 Run the application using:
 
-```sh
 streamlit run app.py
-```
 
 ## How It Works
 1. **Load Data**: Enter a stock ticker symbol (e.g., AAPL, TSLA) and select a date range to fetch historical stock data.
@@ -38,7 +34,3 @@ streamlit run app.py
 ## Model Selection
 - ARIMA: Best suited for non-seasonal stock price trends.
 - SARIMA: Recommended if stock prices exhibit seasonality.
-
-## License
-This project is open-source and available under the MIT License.
-
