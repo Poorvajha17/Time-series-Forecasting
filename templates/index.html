@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time-Series Forecasting - CSA Hackathon 2025</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+
+        .content { padding: 30px; }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            background: transparent;
+            border: none;
+            color: #666;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: bold;
+        }
+
+        .tab:hover { color: #667eea; background: #f5f5f5; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card h3 { color: #667eea; margin-bottom: 15px; }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label { font-size: 0.9em; color: #666; margin-bottom: 5px; }
+        .stat-value { font-size: 1.5em; font-weight: bold; color: #333; }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .loading.active { display: block; }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.active { display: block; }
+
+        .forecast-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .forecast-table th, .forecast-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .forecast-table th {
+            background: #667eea;
+            color: white;
+        }
+
+        .forecast-table tr:hover { background: #f5f5f5; }
+
+        .insights-box {
+            background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%);
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .insights-box h4 { color: #667eea; margin-bottom: 15px; }
+
+        .insight-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .milestone-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 Time-Series Forecasting Platform</h1>
+            <p>Advanced Stock Price Prediction & Analysis - CSA Hackathon 2025</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">All 6 Milestones Implemented - FIXED VERSION</p>
+        </div>
+
+        <div class="content">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('data', event)">📊 M1&2: Data Retrieval</button>
+                <button class="tab" onclick="switchTab('eda', event)">🔍 M3: EDA & Analysis</button>
+                <button class="tab" onclick="switchTab('forecast', event)">🎯 M4&5: Forecasting</button>
+                <button class="tab" onclick="switchTab('export', event)">💾 M6: Export</button>
+            </div>
+
+            <div id="alertBox" class="alert"></div>
+            <div id="loadingBox" class="loading">
+                <div class="spinner"></div>
+                <p>Processing your request...</p>
+            </div>
+
+            <!-- MILESTONE 1 & 2: Data Retrieval Tab -->
+            <div id="data" class="tab-content active">
+                <div class="card">
+                    <span class="milestone-badge">MILESTONE 1: Data Retrieval</span>
+                    <span class="milestone-badge">MILESTONE 2: Data Cleaning</span>
+                    <h3>Data Retrieval & Cleaning</h3>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label for="ticker">Stock Symbol</label>
+                            <select id="ticker">
+                                <optgroup label="Popular Tech Stocks">
+                                    <option value="AAPL">AAPL - Apple Inc.</option>
+                                    <option value="GOOGL">GOOGL - Alphabet Inc.</option>
+                                    <option value="MSFT">MSFT - Microsoft Corp.</option>
+                                    <option value="AMZN">AMZN - Amazon.com Inc.</option>
+                                    <option value="META">META - Meta Platforms</option>
+                                    <option value="TSLA">TSLA - Tesla Inc.</option>
+                                    <option value="NVDA">NVDA - NVIDIA Corp.</option>
+                                </optgroup>
+                                <optgroup label="Financial">
+                                    <option value="JPM">JPM - JPMorgan Chase</option>
+                                    <option value="BAC">BAC - Bank of America</option>
+                                    <option value="V">V - Visa Inc.</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="startDate">Start Date</label>
+                            <input type="date" id="startDate" value="2022-01-01">
+                        </div>
+                        <div class="form-group">
+                            <label for="endDate">End Date</label>
+                            <input type="date" id="endDate" value="2024-12-31">
+                        </div>
+                    </div>
+                    <button class="btn" onclick="fetchData()">Fetch & Clean Data</button>
+                </div>
+
+                <div class="card" id="dataResults" style="display: none;">
+                    <h3>Data Cleaning Report</h3>
+                    <div class="stat-grid" id="cleaningStats"></div>
+                    <div class="chart-container">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MILESTONE 3: EDA Tab -->
+            <div id="eda" class="tab-content">
+                <div class="card">
+                    <span class="milestone-badge">MILESTONE 3: Exploratory Data Analysis</span>
+                    <h3>Comprehensive EDA</h3>
+                    <button class="btn" onclick="performEDA()">Run Complete EDA Analysis</button>
+                </div>
+
+                <div class="card" id="edaResults" style="display: none;">
+                    <h3>📊 Time-Series Plot</h3>
+                    <div class="chart-container">
+                        <canvas id="timeSeriesChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card" id="statsResults" style="display: none;">
+                    <h3>📈 Statistical Summary</h3>
+                    <div class="stat-grid" id="statsGrid"></div>
+                </div>
+
+                <div class="card" id="stationarityResults" style="display: none;">
+                    <h3>🔬 Stationarity Test (ADF)</h3>
+                    <div id="stationarityContent"></div>
+                </div>
+
+                <div class="card" id="seasonalityResults" style="display: none;">
+                    <h3>🔄 Seasonality & Trend Analysis</h3>
+                    <div id="seasonalityContent"></div>
+                </div>
+
+                <div class="card" id="acfResults" style="display: none;">
+                    <h3>📉 ACF & PACF Analysis</h3>
+                    <div class="chart-container">
+                        <canvas id="acfChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="pacfChart"></canvas>
+                    </div>
+                    <div id="cycleInfo" style="margin-top: 15px;"></div>
+                </div>
+
+                <div class="card" id="timeWindowResults" style="display: none;">
+                    <h3>⏰ Time Window Analysis</h3>
+                    <div class="stat-grid" id="timeWindowGrid"></div>
+                </div>
+
+                <div class="card" id="heatmapResults" style="display: none;">
+                    <h3>🔥 Pattern Heatmap - Hour vs Day of Week</h3>
+                    <div class="chart-container" style="height: 500px;">
+                        <canvas id="heatmapChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MILESTONE 4 & 5: Forecast Tab -->
+            <div id="forecast" class="tab-content">
+                <div class="card">
+                    <span class="milestone-badge">MILESTONE 4: Model Building</span>
+                    <span class="milestone-badge">MILESTONE 5: Forecasting</span>
+                    <h3>Model Building & Forecasting</h3>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label for="modelType">Forecasting Model</label>
+                            <select id="modelType">
+                                <option value="ARIMA">ARIMA (Statistical)</option>
+                                <option value="SARIMA">SARIMA (Seasonal)</option>
+                                <option value="RandomForest">Random Forest (ML)</option>
+                                <option value="XGBoost">XGBoost (Advanced ML)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="forecastPeriod">Forecast Period</label>
+                            <select id="forecastPeriod">
+                                <option value="day">Next Day</option>
+                                <option value="week">Next Week (7 days)</option>
+                                <option value="month">Next Month (30 days)</option>
+                                <option value="quarter">Next Quarter (90 days)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="generateForecast()">Generate Forecast</button>
+                </div>
+
+                <div class="card" id="forecastResults" style="display: none;">
+                    <h3>📊 Model Performance Metrics</h3>
+                    <div class="stat-grid" id="metricsGrid"></div>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background: #f0f8ff; border-left: 4px solid #667eea; border-radius: 8px;">
+                        <h4 style="margin-top: 0; color: #667eea;">📊 Understanding Metrics</h4>
+                        <div style="line-height: 1.8;">
+                            <p><strong>MAE:</strong> Average prediction error (lower is better)</p>
+                            <p><strong>RMSE:</strong> Penalizes larger errors (lower is better)</p>
+                            <p><strong>MAPE:</strong> Error as percentage. <10% is good, <5% is excellent</p>
+                            <p id="r2explanation" style="display: none;"><strong>R²:</strong> Variance explained (closer to 1.0 is better)</p>
+                            <p id="aicexplanation" style="display: none;"><strong>AIC/BIC:</strong> Model quality (lower is better)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" id="forecastChart" style="display: none;">
+                    <h3>🎯 Forecast with 95% Confidence Intervals</h3>
+                    <div class="chart-container" style="height: 500px;">
+                        <canvas id="forecastChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="card" id="insightsCard" style="display: none;">
+                    <h3>💡 Forecast Insights</h3>
+                    <div class="insights-box" id="insightsContent"></div>
+                </div>
+
+                <div class="card" id="forecastTable" style="display: none;">
+                    <h3>📋 Detailed Predictions</h3>
+                    <table class="forecast-table" id="forecastTableData"></table>
+                </div>
+            </div>
+
+            <!-- MILESTONE 6: Export Tab -->
+            <div id="export" class="tab-content">
+                <div class="card">
+                    <span class="milestone-badge">MILESTONE 6: Export</span>
+                    <h3>Export for Tableau</h3>
+                    <p>Export time-series data in CSV format for Tableau visualization.</p>
+                    <button class="btn" onclick="exportTableau()">Export to CSV</button>
+                </div>
+
+                <div class="card" id="exportResults" style="display: none;">
+                    <h3>✅ Export Successful</h3>
+                    <p id="exportMessage"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let charts = {};
+
+        function switchTab(tabName, event) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        function showLoading() {
+            document.getElementById('loadingBox').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingBox').classList.remove('active');
+        }
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('alertBox');
+            alert.textContent = message;
+            alert.className = `alert ${type} active`;
+            setTimeout(() => alert.classList.remove('active'), 5000);
+        }
+
+        function destroyChart(name) {
+            if (charts[name]) {
+                charts[name].destroy();
+                delete charts[name];
+            }
+        }
+
+        async function fetchData() {
+            const ticker = document.getElementById('ticker').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!ticker || !startDate || !endDate) {
+                showAlert('Please fill in all fields', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/fetch_data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker, start_date: startDate, end_date: endDate })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to fetch data');
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentData = result.data;
+                    displayDataResults(result);
+                    showAlert(`✅ Data fetched and cleaned for ${ticker}!`, 'success');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayDataResults(result) {
+            document.getElementById('dataResults').style.display = 'block';
+            
+            document.getElementById('cleaningStats').innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-label">Total Records</div>
+                    <div class="stat-value">${result.total_records}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Missing Values Filled</div>
+                    <div class="stat-value">${result.cleaning_report.missing_values_filled}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Duplicates Removed</div>
+                    <div class="stat-value">${result.cleaning_report.duplicates_removed}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Date Format</div>
+                    <div class="stat-value" style="font-size: 1em;">${result.cleaning_report.date_format}</div>
+                </div>
+            `;
+
+            destroyChart('price');
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            charts.price = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: result.data.dates,
+                    datasets: [{
+                        label: 'Close Price',
+                        data: result.data.close,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Stock Price Over Time' }
+                    }
+                }
+            });
+        }
+
+        async function performEDA() {
+            const ticker = document.getElementById('ticker').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!currentData) {
+                showAlert('⚠️ Please fetch data first', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker, start_date: startDate, end_date: endDate })
+                });
+
+                if (!response.ok) throw new Error('Analysis failed');
+
+                const result = await response.json();
+                if (result.success) {
+                    displayEDAResults(result);
+                    showAlert('✅ EDA Complete!', 'success');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayEDAResults(result) {
+            // Time Series
+            document.getElementById('edaResults').style.display = 'block';
+            destroyChart('timeseries');
+            charts.timeseries = new Chart(document.getElementById('timeSeriesChart'), {
+                type: 'line',
+                data: {
+                    labels: result.plot_data.dates,
+                    datasets: [{
+                        label: 'Close Price',
+                        data: result.plot_data.close,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: 'Time-Series Data' } }
+                }
+            });
+
+            // Statistics
+            document.getElementById('statsResults').style.display = 'block';
+            const stats = result.statistics;
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-item"><div class="stat-label">Mean</div><div class="stat-value">$${stats.mean.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Median</div><div class="stat-value">$${stats.median.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Std Dev</div><div class="stat-value">$${stats.std.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Min</div><div class="stat-value">$${stats.min.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Max</div><div class="stat-value">$${stats.max.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Range</div><div class="stat-value">$${stats.range.toFixed(2)}</div></div>
+            `;
+
+            // Stationarity
+            document.getElementById('stationarityResults').style.display = 'block';
+            const st = result.stationarity;
+            document.getElementById('stationarityContent').innerHTML = `
+                <div class="stat-grid">
+                    <div class="stat-item"><div class="stat-label">ADF Statistic</div><div class="stat-value">${st.adf_statistic.toFixed(4)}</div></div>
+                    <div class="stat-item"><div class="stat-label">P-Value</div><div class="stat-value">${st.p_value.toFixed(6)}</div></div>
+                    <div class="stat-item"><div class="stat-label">Is Stationary?</div><div class="stat-value">${st.is_stationary ? '✓ Yes' : '✗ No'}</div></div>
+                    <div class="stat-item"><div class="stat-label">Interpretation</div><div class="stat-value" style="font-size: 0.9em;">${st.interpretation}</div></div>
+                </div>
+            `;
+
+            // Seasonality
+            document.getElementById('seasonalityResults').style.display = 'block';
+            const seas = result.seasonality;
+            let seasHTML = '<div class="stat-grid">';
+            if (seas.has_trend !== undefined) {
+                seasHTML += `
+                    <div class="stat-item"><div class="stat-label">Has Trend?</div><div class="stat-value">${seas.has_trend ? '✓ Yes' : '✗ No'}</div></div>
+                    <div class="stat-item"><div class="stat-label">Has Seasonality?</div><div class="stat-value">${seas.has_seasonality ? '✓ Yes' : '✗ No'}</div></div>
+                `;
+                if (seas.trend_strength) {
+                    seasHTML += `
+                        <div class="stat-item"><div class="stat-label">Trend Strength</div><div class="stat-value">${(seas.trend_strength * 100).toFixed(1)}%</div></div>
+                        <div class="stat-item"><div class="stat-label">Seasonal Strength</div><div class="stat-value">${(seas.seasonal_strength * 100).toFixed(1)}%</div></div>
+                    `;
+                }
+            }
+            seasHTML += '</div>';
+            document.getElementById('seasonalityContent').innerHTML = seasHTML;
+
+            // ACF/PACF
+            document.getElementById('acfResults').style.display = 'block';
+            const acf_pacf = result.acf_pacf;
+            
+            destroyChart('acf');
+            charts.acf = new Chart(document.getElementById('acfChart'), {
+                type: 'bar',
+                data: {
+                    labels: acf_pacf.acf.map((_, i) => i),
+                    datasets: [{
+                        label: 'ACF Values',
+                        data: acf_pacf.acf,
+                        backgroundColor: 'rgba(102, 126, 234, 0.5)',
+                        borderColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: 'Autocorrelation Function (ACF)' } },
+                    scales: { y: { min: -1, max: 1 } }
+                }
+            });
+
+            destroyChart('pacf');
+            charts.pacf = new Chart(document.getElementById('pacfChart'), {
+                type: 'bar',
+                data: {
+                    labels: acf_pacf.pacf.map((_, i) => i),
+                    datasets: [{
+                        label: 'PACF Values',
+                        data: acf_pacf.pacf,
+                        backgroundColor: 'rgba(118, 75, 162, 0.5)',
+                        borderColor: '#764ba2'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: 'Partial Autocorrelation (PACF)' } },
+                    scales: { y: { min: -1, max: 1 } }
+                }
+            });
+
+            document.getElementById('cycleInfo').innerHTML = `
+                <div class="insight-item">
+                    <strong>Significant Lags:</strong> ${acf_pacf.significant_lags.join(', ') || 'None'}
+                    <br><strong>Confidence:</strong> ±${acf_pacf.confidence_interval.toFixed(4)}
+                </div>
+            `;
+
+            // Time Windows
+            document.getElementById('timeWindowResults').style.display = 'block';
+            const tw = result.time_windows;
+            document.getElementById('timeWindowGrid').innerHTML = `
+                <div class="stat-item"><div class="stat-label">Daily Avg</div><div class="stat-value">${tw.daily_average.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Weekly Avg</div><div class="stat-value">${tw.weekly_average.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Monthly Avg</div><div class="stat-value">${tw.monthly_average.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Daily Vol</div><div class="stat-value">${tw.daily_volatility.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Weekly Vol</div><div class="stat-value">${tw.weekly_volatility.toFixed(2)}</div></div>
+                <div class="stat-item"><div class="stat-label">Monthly Vol</div><div class="stat-value">${tw.monthly_volatility.toFixed(2)}</div></div>
+            `;
+
+            // FIXED: Proper heatmap visualization
+            document.getElementById('heatmapResults').style.display = 'block';
+            const hm = result.heatmap_data;
+            
+            destroyChart('heatmap');
+            
+            // Use daily pattern for better visualization
+            const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const dayData = dayLabels.map((_, i) => hm.daily[i] || 0);
+            
+            charts.heatmap = new Chart(document.getElementById('heatmapChart'), {
+                type: 'bar',
+                data: {
+                    labels: dayLabels,
+                    datasets: [{
+                        label: 'Average Price by Day',
+                        data: dayData,
+                        backgroundColor: dayData.map((v, i) => {
+                            const intensity = (v - Math.min(...dayData)) / (Math.max(...dayData) - Math.min(...dayData));
+                            return `rgba(102, 126, 234, ${0.3 + intensity * 0.7})`;
+                        }),
+                        borderColor: '#667eea',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Price Pattern by Day of Week' },
+                        legend: { display: true }
+                    }
+                }
+            });
+        }
+
+        async function generateForecast() {
+            const ticker = document.getElementById('ticker').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const model = document.getElementById('modelType').value;
+            const period = document.getElementById('forecastPeriod').value;
+
+            if (!currentData) {
+                showAlert('⚠️ Please fetch data first', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/forecast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker, start_date: startDate, end_date: endDate, model, period })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Forecasting failed');
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    displayForecastResults(result);
+                    showAlert('✅ Forecast generated successfully!', 'success');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayForecastResults(result) {
+            // Metrics
+            document.getElementById('forecastResults').style.display = 'block';
+            const m = result.metrics;
+            
+            document.getElementById('r2explanation').style.display = m.r2_score !== undefined ? 'block' : 'none';
+            document.getElementById('aicexplanation').style.display = m.aic !== undefined ? 'block' : 'none';
+            
+            let metricsHTML = `
+                <div class="stat-item"><div class="stat-label">MAE</div><div class="stat-value">${m.mae.toFixed(4)}</div></div>
+                <div class="stat-item"><div class="stat-label">RMSE</div><div class="stat-value">${m.rmse.toFixed(4)}</div></div>
+                <div class="stat-item"><div class="stat-label">MAPE</div><div class="stat-value">${m.mape.toFixed(2)}%</div></div>
+            `;
+            
+            if (m.r2_score !== undefined) {
+                metricsHTML += `<div class="stat-item"><div class="stat-label">R² Score</div><div class="stat-value">${m.r2_score.toFixed(4)}</div></div>`;
+            }
+            if (m.aic !== undefined) {
+                metricsHTML += `
+                    <div class="stat-item"><div class="stat-label">AIC</div><div class="stat-value">${m.aic.toFixed(2)}</div></div>
+                    <div class="stat-item"><div class="stat-label">BIC</div><div class="stat-value">${m.bic.toFixed(2)}</div></div>
+                `;
+            }
+            document.getElementById('metricsGrid').innerHTML = metricsHTML;
+
+            // FIXED: Better forecast visualization
+            document.getElementById('forecastChart').style.display = 'block';
+            
+            destroyChart('forecast');
+            
+            const allDates = [...result.historical_data.dates, ...result.forecast.dates];
+            const histLen = result.historical_data.values.length;
+            
+            const historical = [...result.historical_data.values, ...new Array(result.forecast.values.length).fill(null)];
+            const forecast = [...new Array(histLen).fill(null), ...result.forecast.values];
+            const lower = [...new Array(histLen).fill(null), ...result.forecast.lower_bound];
+            const upper = [...new Array(histLen).fill(null), ...result.forecast.upper_bound];
+
+            charts.forecast = new Chart(document.getElementById('forecastChartCanvas'), {
+                type: 'line',
+                data: {
+                    labels: allDates,
+                    datasets: [{
+                        label: 'Historical',
+                        data: historical,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 1,
+                        borderWidth: 2
+                    }, {
+                        label: 'Forecast',
+                        data: forecast,
+                        borderColor: '#ff6384',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        tension: 0.4,
+                        pointRadius: 3,
+                        borderWidth: 3
+                    }, {
+                        label: 'Upper CI',
+                        data: upper,
+                        borderColor: 'rgba(255, 99, 132, 0.3)',
+                        borderDash: [5, 5],
+                        fill: false,
+                        pointRadius: 0,
+                        borderWidth: 1
+                    }, {
+                        label: 'Lower CI',
+                        data: lower,
+                        borderColor: 'rgba(75, 192, 192, 0.3)',
+                        borderDash: [5, 5],
+                        fill: '-1',
+                        backgroundColor: 'rgba(255, 99, 132, 0.05)',
+                        pointRadius: 0,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        title: { display: true, text: `${result.model} Forecast with 95% Confidence Intervals` }
+                    }
+                }
+            });
+
+            // Insights
+            document.getElementById('insightsCard').style.display = 'block';
+            const ins = result.insights;
+            document.getElementById('insightsContent').innerHTML = `
+                <div class="insight-item"><strong>Current Price:</strong> ${ins.current_price.toFixed(2)}</div>
+                <div class="insight-item"><strong>Forecast Avg:</strong> ${ins.forecast_average.toFixed(2)}</div>
+                <div class="insight-item"><strong>Trend:</strong> ${ins.trend.toUpperCase()}</div>
+                <div class="insight-item"><strong>Expected Return:</strong> ${ins.expected_return_percent.toFixed(2)}%</div>
+                <div class="insight-item"><strong>Volatility:</strong> ${ins.forecast_volatility.toFixed(2)}</div>
+                <div class="insight-item"><strong>Confidence:</strong> ${ins.model_confidence}</div>
+                <div class="insight-item" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+                    <strong>⚠️ Note:</strong> ${ins.recommendation}
+                </div>
+            `;
+
+            // Table
+            document.getElementById('forecastTable').style.display = 'block';
+            let tableHTML = '<tr><th>Date</th><th>Prediction</th><th>Lower CI</th><th>Upper CI</th></tr>';
+            result.forecast.dates.forEach((date, i) => {
+                tableHTML += `<tr>
+                    <td>${date}</td>
+                    <td>${result.forecast.values[i].toFixed(2)}</td>
+                    <td>${result.forecast.lower_bound[i].toFixed(2)}</td>
+                    <td>${result.forecast.upper_bound[i].toFixed(2)}</td>
+                </tr>`;
+            });
+            document.getElementById('forecastTableData').innerHTML = tableHTML;
+        }
+
+        async function exportTableau() {
+            const ticker = document.getElementById('ticker').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!currentData) {
+                showAlert('⚠️ Please fetch data first', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/export_tableau', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker, start_date: startDate, end_date: endDate })
+                });
+
+                if (!response.ok) throw new Error('Export failed');
+
+                const result = await response.json();
+                if (result.success) {
+                    const blob = new Blob([result.csv_data], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = result.filename;
+                    a.click();
+                    
+                    document.getElementById('exportResults').style.display = 'block';
+                    document.getElementById('exportMessage').textContent = 
+                        `✅ Exported ${result.filename} successfully!`;
+                    showAlert('✅ Export complete!', 'success');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+    </script>
+</body>
+</html>
