@@ -921,27 +921,32 @@
         }
 
         async function exportTableau() {
-            const ticker = document.getElementById('ticker').value;
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
 
-            if (!currentData) {
-                showAlert('⚠️ Please fetch data first', 'error');
-                return;
-            }
+            const tickers = [
+                "AAPL", "GOOGL", "MSFT", "AMZN",
+                "META", "TSLA", "NVDA",
+                "JPM", "BAC", "V"
+            ];
 
             showLoading();
 
             try {
-                const response = await fetch('/api/export_tableau', {
+                const response = await fetch('/api/export_tableau_all', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ticker, start_date: startDate, end_date: endDate })
+                    body: JSON.stringify({
+                        tickers: tickers,
+                        start_date: startDate,
+                        end_date: endDate
+                    })
                 });
 
                 if (!response.ok) throw new Error('Export failed');
 
                 const result = await response.json();
+
                 if (result.success) {
                     const blob = new Blob([result.csv_data], { type: 'text/csv' });
                     const url = window.URL.createObjectURL(blob);
@@ -949,11 +954,12 @@
                     a.href = url;
                     a.download = result.filename;
                     a.click();
-                    
+
                     document.getElementById('exportResults').style.display = 'block';
-                    document.getElementById('exportMessage').textContent = 
-                        `✅ Exported ${result.filename} successfully!`;
-                    showAlert('✅ Export complete!', 'success');
+                    document.getElementById('exportMessage').textContent =
+                        `✅ Exported consolidated dataset successfully!`;
+
+                    showAlert('✅ Consolidated Tableau export complete!', 'success');
                 }
             } catch (error) {
                 showAlert('Error: ' + error.message, 'error');
@@ -961,6 +967,7 @@
                 hideLoading();
             }
         }
+
     </script>
 </body>
 </html>

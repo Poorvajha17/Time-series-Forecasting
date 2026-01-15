@@ -49,6 +49,11 @@ class ForecastRequest(BaseModel):
     model: str = "ARIMA"
     period: str = "week"
 
+class MultiTickerRequest(BaseModel):
+    tickers: list[str]
+    start_date: str
+    end_date: str
+
 # ============================================================================
 # MILESTONE 1: DATA RETRIEVAL
 # ============================================================================
@@ -698,32 +703,45 @@ async def forecast(request: ForecastRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/export_tableau")
-async def export_tableau(request: DataRequest):
+@app.post("/api/export_tableau_all")
+async def export_tableau_all(request: MultiTickerRequest):
     try:
-        stock_data, error = DataRetriever.fetch_stock_data(
-            request.ticker, request.start_date, request.end_date
-        )
-        if error:
-            raise HTTPException(status_code=400, detail=error)
-        
-        cleaned_data, _ = DataPreprocessor.clean_data(stock_data)
-        
-        tableau_data = cleaned_data.copy()
-        tableau_data['Date'] = tableau_data.index
-        tableau_data['Ticker'] = request.ticker
-        tableau_data['MA_7'] = tableau_data['Close'].rolling(7, min_periods=1).mean()
-        tableau_data['MA_30'] = tableau_data['Close'].rolling(30, min_periods=1).mean()
-        tableau_data['Returns'] = tableau_data['Close'].pct_change()
-        tableau_data = tableau_data.reset_index(drop=True)
-        
-        csv_data = tableau_data.to_csv(index=False)
-        
+        all_data = []
+
+        for ticker in request.tickers:
+            stock_data, error = DataRetriever.fetch_stock_data(
+                ticker, request.start_date, request.end_date
+            )
+
+            if error:
+                continue
+
+            cleaned_data, _ = DataPreprocessor.clean_data(stock_data)
+
+            df = cleaned_data.copy()
+            df['Date'] = df.index
+            df['Ticker'] = ticker
+
+            # Analytics-friendly fields
+            df['MA_7'] = df['Close'].rolling(7, min_periods=1).mean()
+            df['MA_30'] = df['Close'].rolling(30, min_periods=1).mean()
+            df['Returns'] = df['Close'].pct_change()
+
+            df = df.reset_index(drop=True)
+            all_data.append(df)
+
+        if not all_data:
+            raise HTTPException(status_code=400, detail="No valid data fetched")
+
+        final_df = pd.concat(all_data, ignore_index=True)
+        csv_data = final_df.to_csv(index=False)
+
         return JSONResponse(content={
-            'success': True,
-            'csv_data': csv_data,
-            'filename': f'{request.ticker}_timeseries_data.csv'
+            "success": True,
+            "filename": "stock_timeseries_all.csv",
+            "csv_data": csv_data
         })
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
